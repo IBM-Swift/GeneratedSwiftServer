@@ -320,7 +320,7 @@ open class Model {
         try self.forEachValidPropertyInJSON(json) { name, value in
             entity[name] = value
         }
-        let modelID = try type(of: store as Store).ID(id)
+        let modelID = try type(of: store as Store).ID(id ?? "")
         try self.update_(modelID, entity, callback: callback)
     }
 
@@ -364,7 +364,7 @@ open class Model {
     //           * StoreError.storeUnavailable(reason) - if the Store is not in a ready state to service queries
     //           * StoreError.internalError - if there is a logic error
     static func delete(_ id: String?, callback: @escaping (Model?, StoreError?) -> Void) throws {
-        let id = try type(of: store as Store).ID(id)
+        let id = try type(of: store as Store).ID(id ?? "")
         try delete_(id, callback: callback)
     }
 
@@ -422,7 +422,7 @@ open class Model {
     func delete(callback: @escaping (Model?, StoreError?) -> Void) throws {
         let modelType = type(of: self)
         let storeType = type(of: modelType.store as Store)
-        let id = try storeType.ID(properties["id"])
+        let id = try storeType.ID(properties["id"] ?? "")
         try modelType.delete_(id, callback: callback)
     }
 
