@@ -1,25 +1,9 @@
-/*
- * Copyright IBM Corporation 2016
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import Foundation
 
-class MemoryStore: Store {
+public class MemoryStore: Store {
     struct MemoryStoreID: ModelID {
         let value: Int
-
+        
         init(_ id: Any) throws {
             switch id {
             case let int as Int: value = int
@@ -28,11 +12,11 @@ class MemoryStore: Store {
             default: throw StoreError.idInvalid(id)
             }
         }
-
+        
         var description: String {
             return String(describing: value)
         }
-
+        
         func convert(to: PropertyDefinition.PropertyType) -> Any? {
             switch to {
             case .string: return String(describing: value)
@@ -42,36 +26,39 @@ class MemoryStore: Store {
             }
         }
     }
-    static func ID(_ id: Any) throws -> ModelID {
+    
+    public static func ID(_ id: Any) throws -> ModelID {
         return try MemoryStoreID(id)
     }
-
-    var entities: [[String:Any]] = []
-    var nextId: Int = 1
-
+    
     private static func mergeDictionary(_ dest: inout [String:Any], merge: [String:Any]) {
         for (key, value) in merge {
             dest[key] = value
         }
     }
-
+    
     private static func sanitize(entity: [String:Any]) -> [String:Any] {
         var sanitizedEntity = entity
         sanitizedEntity.removeValue(forKey: "_type")
         return sanitizedEntity
     }
-
-    func findAll(type: Model.Type, callback: @escaping EntitiesCallback) {
+    
+    var entities: [[String:Any]] = []
+    var nextId: Int = 1
+    
+    public init() {}
+    
+    public func findAll(type: Model.Type, callback: @escaping EntitiesCallback) {
         let matchingEntities = entities.filter { $0["_type"] as! Model.Type == type }
-                                       .map(MemoryStore.sanitize)
+            .map(MemoryStore.sanitize)
         callback(matchingEntities, nil)
     }
-
+    
     private func findOne_(type: Model.Type, id: MemoryStoreID) -> ([String:Any], Int)? {
         let maybeIndex = entities.index { $0["_type"] as! Model.Type == type && ($0["id"] as! MemoryStoreID).value == id.value }
         return maybeIndex.map { (MemoryStore.sanitize(entity: entities[$0]), $0) }
     }
-    func findOne(type: Model.Type, id: ModelID, callback: @escaping EntityCallback) throws {
+    public func findOne(type: Model.Type, id: ModelID, callback: @escaping EntityCallback) throws {
         guard let memoryStoreID = id as? MemoryStoreID else {
             // TODO(tunniclm): This failure path may go away if Store
             // is made generic over ModelID
@@ -83,8 +70,8 @@ class MemoryStore: Store {
             callback(nil, .notFound(id))
         }
     }
-
-    func create(type: Model.Type, id: ModelID?, entity: [String:Any], callback: @escaping EntityCallback) throws {
+    
+    public func create(type: Model.Type, id: ModelID?, entity: [String:Any], callback: @escaping EntityCallback) throws {
         var modifiedEntity = entity
         // NOTE(tunniclm): Ignore any id in the JSON, we should respect
         // the _id_ parameter instead
@@ -119,23 +106,23 @@ class MemoryStore: Store {
             callback(MemoryStore.sanitize(entity: newItem), nil)
         }
     }
-
-    func update(type: Model.Type, id: ModelID, entity: [String:Any], callback: @escaping EntityCallback) throws {
+    
+    public func update(type: Model.Type, id: ModelID, entity: [String:Any], callback: @escaping EntityCallback) throws {
         guard let memoryStoreID = id as? MemoryStoreID else {
             throw StoreError.idInvalid(id)
         }
-
+        
         guard let (existing, index) = findOne_(type: type, id: memoryStoreID) else {
             // NOTE(tunniclm): Only allowed to update existing models
             callback(nil, .notFound(memoryStoreID))
             return
         }
-
+        
         var updatedItem = existing
         MemoryStore.mergeDictionary(&updatedItem, merge: entity)
         updatedItem["_type"] = type
         updatedItem["id"] = id
-
+        
         if let newId = try entity["id"].map({ try MemoryStoreID($0) }) {
             if newId.value != memoryStoreID.value {
                 // NOTE(tunniclm): Changing the id of this model
@@ -151,12 +138,12 @@ class MemoryStore: Store {
                 updatedItem["id"] = newId
             }
         }
-
+        
         entities[index] = updatedItem
         callback(MemoryStore.sanitize(entity: updatedItem), nil)
     }
-
-    func delete(type: Model.Type, id: ModelID, callback: @escaping EntityCallback) throws {
+    
+    public func delete(type: Model.Type, id: ModelID, callback: @escaping EntityCallback) throws {
         // TODO(tunniclm): Generics might help with this type constraint (make parameter "id: CloudantStoreID").
         guard let memoryStoreID = id as? MemoryStoreID else {
             // TODO(tunniclm): This failure path may go away if Store
@@ -169,8 +156,8 @@ class MemoryStore: Store {
         }
         callback(nil, .notFound(memoryStoreID))
     }
-
-    func deleteAll(type: Model.Type, callback: @escaping ErrorCallback) {
+    
+    public func deleteAll(type: Model.Type, callback: @escaping ErrorCallback) {
         entities.removeAll()
         callback(nil)
     }

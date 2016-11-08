@@ -1,19 +1,3 @@
-/*
- * Copyright IBM Corporation 2016
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import SwiftyJSON
 import Foundation
 
@@ -21,7 +5,7 @@ open class Model {
     static var store: Store!
     static var definitions: [String:(Model.Type,ModelDefinition)] = [:]
     var properties: [String:Any]
-
+    
     static func injectDefaults(_ properties: [String:Any]) -> [String:Any] {
         // NOTE(tunniclm): validate that required properties have been provided
         guard let (_, modelDef) = Model.definitions[String(describing: self)] else {
@@ -40,7 +24,7 @@ open class Model {
         }
         return updatedProperties
     }
-
+    
     static func ensureValid(_ properties: [String:Any]) throws {
         // NOTE(tunniclm): validate that required properties have been provided
         guard let (_, modelDef) = Model.definitions[String(describing: self)] else {
@@ -55,7 +39,7 @@ open class Model {
             }
         }
     }
-
+    
     public required init(_ properties: [String:Any]) throws {
         // NOTE(tunniclm): require that properties contain a valid id
         let modelType = type(of: self)
@@ -75,24 +59,24 @@ open class Model {
         // TODO(tunniclm): OK to allow models that don't store the id?
         // TODO(tunniclm): Allow id properties named something else
         if let id = modelID,
-           let property = defn.properties["id"] {
+            let property = defn.properties["id"] {
             guard let convertedID = id.convert(to: property.type) else {
                 // NOTE(tunniclm): Could not convert store id to requested type
                 // TODO(tunniclm): Handle this better
                 throw InternalError("ID conversion failed")
             }
             guard property.sameTypeAs(object: convertedID) else {
-                // NOTE(tunniclm): internal error, store did not actually convert 
+                // NOTE(tunniclm): internal error, store did not actually convert
                 // to the type we asked for
                 throw InternalError("ID conversion result has an incompatible type")
             }
             self.properties["id"] = convertedID
         }
     }
-
+    
     static func loadModels(fromDir url: URL) throws -> [(String, String)] {
         var failures: [(String, String)] = []
-
+        
         let files = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
         
         for file in files.filter({ $0.lastPathComponent.hasSuffix(".json") }) {
@@ -113,7 +97,7 @@ open class Model {
         }
         return failures
     }
-
+    
     // NOTE(tunniclm): The provided modelDict should have come from the store.
     // This means that it must:
     // * have valid properties (at the time it was saved)
@@ -122,14 +106,14 @@ open class Model {
         // from ModelID to appropriate value to match model definition
         return try self.init(modelDict)
     }
-
+    
     private static func definition(for propertyName: String) throws -> PropertyDefinition? {
         guard let (_, modelDefinition) = definitions[String(describing: self)] else {
             throw InternalError("No definition found for model \(self)")
         }
         return modelDefinition.properties[propertyName]
     }
-
+    
     // findOne
     //   Read a model of the matching type and id from the configured Store.
     //
@@ -163,7 +147,7 @@ open class Model {
             try findOne_(storeModelID, callback: callback)
         }
     }
-
+    
     // Assumes:
     // * id is compatible with the Store we are using (caller should ensure this)
     private static func findOne_(_ id: ModelID, callback: @escaping (Model?, StoreError?) -> Void) throws {
@@ -183,7 +167,7 @@ open class Model {
             throw InternalError("Reading entity (type: \(self), id: \(id)) from store \(storeType)", causedBy: error)
         }
     }
-
+    
     // findAll
     //   Reads all models of the matching type from the configured Store.
     //
@@ -206,7 +190,7 @@ open class Model {
             }
         }
     }
-
+    
     private static func forEachValidPropertyInJSON(_ json: JSON, callback: @escaping (String,Any) -> Void) throws {
         // NOTE(tunniclm): Look up the model definition for this Model subclass
         // TODO This is using the name of the subclass as a key in a dictionary
@@ -219,7 +203,7 @@ open class Model {
             assert(false)
             return
         }
-
+        
         // NOTE(tunniclm): Construct an entity description from the provided JSON
         // object, dropping any extraneous or mismatching properties
         for (jsonPropertyName, jsonValue) in json.dictionaryValue {
@@ -229,7 +213,7 @@ open class Model {
                 throw ModelError.extraneousProperty(name: jsonPropertyName)
             }
             print("Found property definition for \(jsonPropertyName): \(property)") // DEBUG
-
+            
             if let value = property.convertValue(fromJSON: jsonValue) {
                 print("Setting \(property.name) property to \(value)") // DEBUG
                 // TODO Validate property -- custom validations etc
@@ -242,7 +226,7 @@ open class Model {
             }
         }
     }
-
+    
     // create
     //   Create a model as defined by the provided JSON and write it to the configured Store.
     //   Use the "id" property of the JSON, if provided, as the id to store the model against
@@ -273,7 +257,7 @@ open class Model {
         let id = try entity["id"].map { try type(of: store as Store).ID($0) }
         try self.create_(id, entity, callback: callback)
     }
-
+    
     // Assumes:
     // * id is compatible with the Store we are using (caller should ensure this)
     // * type checking of properties has already been performed and found compatible
@@ -293,13 +277,12 @@ open class Model {
             throw InternalError("Creating entity (type: \(self), value: \(entity)) in store \(storeType)", causedBy: error)
         }
     }
-
+    
     // update
-    //   Update a model as defined by the provided JSON and write it to the configured Store.
-    //   Use the "id" property of the JSON, if provided, as the id to store the model against
-    //   in the Store.
-    //
+    //   Update a model of the matching type and id as defined by the provided JSON and write it to
+    //   the configured Store.
     // throws:
+    //   ModelError.requiredPropertyMissing("id") - if the id is missing or empty
     //   ModelError.extraneousProperty(name) - if the JSON supplies any property not present in the model definition
     //   ModelError.propertyTypeMismatch(...) - if any JSON property's type fails to match the model definition
     //   StoreError.idInvalid(id) - if an id is provided and is not compatible with the Store
@@ -316,16 +299,19 @@ open class Model {
     //           * StoreError.storeUnavailable(reason) - if the Store is not in a ready state to service queries
     //           * StoreError.internalError - if there is a logic error
     static func update(_ id: String?, json: JSON, callback: @escaping (Model?, StoreError?) -> Void) throws {
+        guard let id = id else {
+            throw ModelError.requiredPropertyMissing(name: "id")
+        }
         var entity: [String:Any] = [:]
         try self.forEachValidPropertyInJSON(json) { name, value in
             entity[name] = value
         }
-        let modelID = try type(of: store as Store).ID(id ?? "")
+        let modelID = try type(of: store as Store).ID(id)
         try self.update_(modelID, entity, callback: callback)
     }
-
+    
     // TODO Check -- an update can only set or edit properties to non-nil values and
-    // as such an update will not put an entity in a state where it is missing 
+    // as such an update will not put an entity in a state where it is missing
     // required properties. This may well be bogus--you should probably be able to
     // set (non-required) properites to nil.
     // Assumes:
@@ -347,7 +333,7 @@ open class Model {
             throw InternalError("Updating entity (type: \(self), id: \(id), updates: \(entity)) in store \(storeType)", causedBy: error)
         }
     }
-
+    
     // delete
     //   Delete a model of the matching type and id from the configured Store.
     //
@@ -364,14 +350,17 @@ open class Model {
     //           * StoreError.storeUnavailable(reason) - if the Store is not in a ready state to service queries
     //           * StoreError.internalError - if there is a logic error
     static func delete(_ id: String?, callback: @escaping (Model?, StoreError?) -> Void) throws {
-        let id = try type(of: store as Store).ID(id ?? "")
-        try delete_(id, callback: callback)
+        guard let id = id else {
+            throw ModelError.requiredPropertyMissing(name: "id")
+        }
+        let modelID = try type(of: store as Store).ID(id)
+        try delete_(modelID, callback: callback)
     }
-
+    
     static func deleteAll(callback: @escaping (StoreError?) -> Void) throws {
         try store.deleteAll(type: self, callback: callback)
     }
-
+    
     // Assumes:
     // * id is compatible with the Store we are using (caller should ensure this)
     private static func delete_(_ id: ModelID, callback: @escaping (Model?, StoreError?) -> Void) throws {
@@ -391,14 +380,14 @@ open class Model {
             throw InternalError("Deleting entity (type: \(self), id: \(id)) in store \(storeType)", causedBy: error)
         }
     }
-
+    
     func update(json: JSON) throws -> Model {
         try type(of: self).forEachValidPropertyInJSON(json) { name, value in
             self.properties[name] = value
         }
         return self
     }
-
+    
     // TODO should probably return this object rather than a new one
     // TODO deal with the scenario where calling code can findOne() a mode
     //      update its id, then save--in this case you could end up overwriting
@@ -418,14 +407,17 @@ open class Model {
             }
         }
     }
-
+    
     func delete(callback: @escaping (Model?, StoreError?) -> Void) throws {
         let modelType = type(of: self)
         let storeType = type(of: modelType.store as Store)
-        let id = try storeType.ID(properties["id"] ?? "")
-        try modelType.delete_(id, callback: callback)
+        guard let id = properties["id"] else {
+            throw InternalError("Entity from store is missing an id")
+        }
+        let modelID = try storeType.ID(id)
+        try modelType.delete_(modelID, callback: callback)
     }
-
+    
     func json() -> JSON {
         var result = JSON([:])
         for (key, value) in properties {

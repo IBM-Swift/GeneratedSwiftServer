@@ -1,19 +1,3 @@
-/*
- * Copyright IBM Corporation 2016
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import Foundation
 import Kitura
 import KituraNet
@@ -21,16 +5,16 @@ import SwiftyJSON
 
 public class Application {
     public struct ProjectRootNotFoundError: Swift.Error {}
-
+    
     public let router: Router
     public var port = 8090
-
+    
     public static func findProjectRoot(from initialSearchPath: String = #file) -> URL? {
         let fileManager = FileManager()
-
+        
         let fileURL = URL(fileURLWithPath: initialSearchPath)
         let directoryURL = fileURL.deletingLastPathComponent()
-
+        
         var searchDirectory = directoryURL
         while searchDirectory.path != "/" {
             let projectFilePath = searchDirectory.appendingPathComponent(".swiftservergenerator-project").path
@@ -41,14 +25,14 @@ public class Application {
         }
         return nil
     }
-
+    
     public convenience init() throws {
         guard let projectRoot = Application.findProjectRoot() else {
             throw ProjectRootNotFoundError()
         }
         self.init(projectRoot: projectRoot)
     }
-
+    
     public init(projectRoot: URL) {
         do {
             let fileData = try Data(contentsOf: projectRoot.appendingPathComponent("config.json"))
@@ -59,18 +43,18 @@ public class Application {
         } catch {
             print("Unable to open file, using default port 8090")
         }
-
+        
         router = Router()
-
+        
         router.all("/api/*", middleware: BodyParser())
-
+        
         // Initialise Store
         Model.store = MemoryStore() /*CloudantStore(ConnectionProperties(
-            host: "localhost",
-            port: 5984,
-            secured: false
-        ))*/
-
+         host: "localhost",
+         port: 5984,
+         secured: false
+         ))*/
+        
         // Load model definitions
         do {
             let failures = try Model.loadModels(fromDir: projectRoot.appendingPathComponent("models"))
@@ -80,19 +64,19 @@ public class Application {
         } catch {
             print("Failed to load models from ./models") // TODO give details from thrown error
         }
-
+        
         if Model.definitions.count == 0 {
             print("No models were loaded, exiting")
             exit(1)
         }
-
+        
         // Generate the routes for each model
         for (_, (modelClass, modelDefn)) in Model.definitions {
             let onePath = "/api/\(modelDefn.name)/:id"
             let allPath = "/api/\(modelDefn.plural)"
-
+            
             print("Defining routes for \(modelDefn.name)")
-
+            
             router.delete(allPath) { req, res, next in
                 do {
                     try modelClass.deleteAll() { error in
@@ -109,7 +93,7 @@ public class Application {
                     return next()
                 }
             }
-
+            
             print("Defining GET \(allPath)")
             router.get(allPath) { req, res, next in
                 print("GET \(allPath)")
@@ -123,7 +107,7 @@ public class Application {
                     next()
                 }
             }
-
+            
             router.get(onePath) { req, res, next in
                 do {
                     try modelClass.findOne(req.parameters["id"]) { model, error in
@@ -143,7 +127,7 @@ public class Application {
                     }
                 } catch let error as ModelError {
                     if case ModelError.propertyTypeMismatch(let name, _, _, _) = error,
-                       name == "id" {
+                        name == "id" {
                         res.status(.badRequest)
                     } else {
                         // NOTE(tunniclm): findOne() should only throw
@@ -157,20 +141,20 @@ public class Application {
                     return next()
                 }
             }
-
+            
             router.post(allPath) { req, res, next in
                 guard let contentType = req.headers["Content-Type"],
-                      contentType.hasPrefix("application/json") else {
-                    res.status(.unsupportedMediaType)
-                    res.send(json: JSON([ "error": "Request Content-Type must be application/json" ]))
-                    return next()
+                    contentType.hasPrefix("application/json") else {
+                        res.status(.unsupportedMediaType)
+                        res.send(json: JSON([ "error": "Request Content-Type must be application/json" ]))
+                        return next()
                 }
                 guard case let .json(json)? = req.body else {
                     res.status(.badRequest)
                     res.send(json: JSON([ "error": "Request body could not be parsed as JSON" ]))
                     return next()
                 }
-
+                
                 do {
                     try modelClass.create(json: json) { model, error in
                         if let error = error {
@@ -200,13 +184,13 @@ public class Application {
                     // TODO Log something here about the unexpected error type
                 }
             }
-
+            
             router.put(onePath) { req, res, next in
                 guard let contentType = req.headers["Content-Type"],
-                      contentType.hasPrefix("application/json") else {
-                    res.status(.unsupportedMediaType)
-                    res.send(json: JSON([ "error": "Request Content-Type must be application/json" ]))
-                    return next()
+                    contentType.hasPrefix("application/json") else {
+                        res.status(.unsupportedMediaType)
+                        res.send(json: JSON([ "error": "Request Content-Type must be application/json" ]))
+                        return next()
                 }
                 guard let body = req.body else {
                     res.status(.badRequest)
@@ -218,7 +202,7 @@ public class Application {
                     res.send(json: JSON([ "error": "Request body could not be parsed as JSON" ]))
                     return next()
                 }
-
+                
                 do {
                     try modelClass.update(req.parameters["id"], json: json) { model, error in
                         switch error {
@@ -244,10 +228,12 @@ public class Application {
                         }
                     }
                 } catch let error as ModelError {
-                    if case ModelError.propertyTypeMismatch(let name, _, _, _) = error,
-                       name == "id" {
+                    switch error {
+                    case .propertyTypeMismatch(name: "id", _, _, _),
+                         .requiredPropertyMissing(name: "id"):
+                        
                         res.status(.badRequest)
-                    } else {
+                    default:
                         res.status(.unprocessableEntity)
                     }
                     res.send(json: JSON([ "error": error.defaultMessage() ]))
@@ -257,7 +243,7 @@ public class Application {
                     return next()
                 }
             }
-
+            
             router.delete(onePath) { req, res, next in
                 do {
                     try modelClass.delete(req.parameters["id"]) { model, error in
@@ -276,10 +262,12 @@ public class Application {
                         next()
                     }
                 } catch let error as ModelError {
-                    if case ModelError.propertyTypeMismatch(let name, _, _, _) = error,
-                       name == "id" {
+                    switch error {
+                    case .propertyTypeMismatch(name: "id", _, _, _),
+                         .requiredPropertyMissing(name: "id"):
+                        
                         res.status(.badRequest)
-                    } else {
+                    default:
                         // NOTE(tunniclm): delete() should only throw
                         // idInvalid errors
                         res.status(.internalServerError)
