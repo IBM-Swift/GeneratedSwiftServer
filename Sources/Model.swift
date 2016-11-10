@@ -122,7 +122,7 @@ open class Model {
         // from ModelID to appropriate value to match model definition
         return try self.init(modelDict)
     }
-    
+
     private static func definition(for propertyName: String) throws -> PropertyDefinition? {
         guard let (_, modelDefinition) = definitions[String(describing: self)] else {
             throw InternalError("No definition found for model \(self)")

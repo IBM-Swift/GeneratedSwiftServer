@@ -127,13 +127,13 @@ public class MemoryStore: Store {
         guard let memoryStoreID = id as? MemoryStoreID else {
             throw StoreError.idInvalid(id)
         }
-        
+
         guard let (existing, index) = findOne_(type: type, id: memoryStoreID) else {
             // NOTE(tunniclm): Only allowed to update existing models
             callback(nil, .notFound(memoryStoreID))
             return
         }
-        
+
         var updatedItem = existing
         MemoryStore.mergeDictionary(&updatedItem, merge: entity)
         updatedItem["_type"] = type
@@ -154,7 +154,7 @@ public class MemoryStore: Store {
                 updatedItem["id"] = newId
             }
         }
-        
+
         entities[index] = updatedItem
         callback(MemoryStore.sanitize(entity: updatedItem), nil)
     }

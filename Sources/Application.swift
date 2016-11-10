@@ -30,7 +30,7 @@ public class Application {
 
         let fileURL = URL(fileURLWithPath: initialSearchPath)
         let directoryURL = fileURL.deletingLastPathComponent()
-        
+
         var searchDirectory = directoryURL
         while searchDirectory.path != "/" {
             let projectFilePath = searchDirectory.appendingPathComponent(".swiftservergenerator-project").path
@@ -63,6 +63,8 @@ public class Application {
         router = Router()
 
         router.all("/api/*", middleware: BodyParser())
+
+        Model.store = MemoryStore()
 
         // Load model definitions
         do {
@@ -240,7 +242,7 @@ public class Application {
                     switch error {
                     case .propertyTypeMismatch(name: "id", _, _, _),
                          .requiredPropertyMissing(name: "id"):
-                        
+
                         res.status(.badRequest)
                     default:
                         res.status(.unprocessableEntity)
