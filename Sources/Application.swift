@@ -18,6 +18,7 @@ import Foundation
 import Kitura
 import KituraNet
 import SwiftyJSON
+import LoggerAPI
 
 public class Application {
     public struct ProjectRootNotFoundError: Swift.Error {}
@@ -57,14 +58,14 @@ public class Application {
         do {
             let failures = try Model.loadModels(fromDir: projectRoot.appendingPathComponent("models"))
             for (file, message) in failures {
-                print("Skipped loading model \(file) due to error: \(message)")
+                Log.error("Skipped loading model \(file) due to error: \(message)")
             }
         } catch {
-            print("Failed to load models from ./models") // TODO give details from thrown error
+            Log.error("Failed to load models from ./models. Details: \(error)")
         }
 
         if Model.definitions.count == 0 {
-            print("No models were loaded, exiting")
+            Log.error("No models were loaded, exiting")
             exit(1)
         }
 
@@ -73,7 +74,7 @@ public class Application {
             let onePath = "/api/\(modelDefn.name)/:id"
             let allPath = "/api/\(modelDefn.plural)"
 
-            print("Defining routes for \(modelDefn.name)")
+            Log.info("Defining routes for \(modelDefn.name)")
 
             router.delete(allPath) { req, res, next in
                 do {
@@ -92,9 +93,9 @@ public class Application {
                 }
             }
 
-            print("Defining GET \(allPath)")
+            Log.info("Defining GET \(allPath)")
             router.get(allPath) { req, res, next in
-                print("GET \(allPath)")
+                Log.debug("GET \(allPath)")
                 modelClass.findAll() { models, error in
                     if let _ = error {
                         res.status(.internalServerError)
@@ -106,8 +107,10 @@ public class Application {
                 }
             }
 
+            Log.info("Defining GET \(onePath)")
             router.get(onePath) { req, res, next in
                 do {
+                    Log.debug("GET \(onePath)")
                     try modelClass.findOne(req.parameters["id"]) { model, error in
                         switch error {
                         case nil:
@@ -140,7 +143,9 @@ public class Application {
                 }
             }
 
+            Log.info("Defining POST \(allPath)")
             router.post(allPath) { req, res, next in
+                Log.debug("POST \(onePath)")
                 guard let contentType = req.headers["Content-Type"],
                       contentType.hasPrefix("application/json") else {
                     res.status(.unsupportedMediaType)
@@ -177,13 +182,15 @@ public class Application {
                     res.send(json: JSON([ "error": error.defaultMessage() ]))
                     next()
                 } catch {
+                    Log.error("Unexpected error type")
                     res.status(.internalServerError)
                     next()
-                    // TODO Log something here about the unexpected error type
                 }
             }
 
+            Log.info("Defining PUT \(onePath)")
             router.put(onePath) { req, res, next in
+                Log.debug("PUT \(onePath)")
                 guard let contentType = req.headers["Content-Type"],
                       contentType.hasPrefix("application/json") else {
                     res.status(.unsupportedMediaType)
@@ -241,8 +248,10 @@ public class Application {
                 }
             }
 
+            Log.info("Defining DELETE \(onePath)")
             router.delete(onePath) { req, res, next in
                 do {
+                    Log.debug("DELETE \(onePath)")
                     try modelClass.delete(req.parameters["id"]) { model, error in
                         switch error {
                         case nil:

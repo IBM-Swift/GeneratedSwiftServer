@@ -16,6 +16,7 @@
 
 import SwiftyJSON
 import Foundation
+import LoggerAPI
 
 open class Model {
     public static var store: Store!
@@ -228,10 +229,10 @@ open class Model {
                 // model definition, so ignore it.
                 throw ModelError.extraneousProperty(name: jsonPropertyName)
             }
-            print("Found property definition for \(jsonPropertyName): \(property)") // DEBUG
+            Log.debug("Found property definition for \(jsonPropertyName): \(property)") // DEBUG
 
             if let value = property.convertValue(fromJSON: jsonValue) {
-                print("Setting \(property.name) property to \(value)") // DEBUG
+                Log.debug("Setting \(property.name) property to \(value)") // DEBUG
                 // TODO Validate property -- custom validations etc
                 callback(property.name, value)
             } else {
