@@ -16,7 +16,7 @@
 
 import Foundation
 
-class MemoryStore: Store {
+public class MemoryStore: Store {
     struct MemoryStoreID: ModelID {
         let value: Int
 
@@ -42,12 +42,9 @@ class MemoryStore: Store {
             }
         }
     }
-    static func ID(_ id: Any) throws -> ModelID {
+    public static func ID(_ id: Any) throws -> ModelID {
         return try MemoryStoreID(id)
     }
-
-    var entities: [[String:Any]] = []
-    var nextId: Int = 1
 
     private static func mergeDictionary(_ dest: inout [String:Any], merge: [String:Any]) {
         for (key, value) in merge {
@@ -61,7 +58,12 @@ class MemoryStore: Store {
         return sanitizedEntity
     }
 
-    func findAll(type: Model.Type, callback: @escaping EntitiesCallback) {
+    var entities: [[String:Any]] = []
+    var nextId: Int = 1
+
+    public init() {}
+
+    public func findAll(type: Model.Type, callback: @escaping EntitiesCallback) {
         let matchingEntities = entities.filter { $0["_type"] as! Model.Type == type }
                                        .map(MemoryStore.sanitize)
         callback(matchingEntities, nil)
@@ -71,7 +73,7 @@ class MemoryStore: Store {
         let maybeIndex = entities.index { $0["_type"] as! Model.Type == type && ($0["id"] as! MemoryStoreID).value == id.value }
         return maybeIndex.map { (MemoryStore.sanitize(entity: entities[$0]), $0) }
     }
-    func findOne(type: Model.Type, id: ModelID, callback: @escaping EntityCallback) throws {
+    public func findOne(type: Model.Type, id: ModelID, callback: @escaping EntityCallback) throws {
         guard let memoryStoreID = id as? MemoryStoreID else {
             // TODO(tunniclm): This failure path may go away if Store
             // is made generic over ModelID
@@ -84,7 +86,7 @@ class MemoryStore: Store {
         }
     }
 
-    func create(type: Model.Type, id: ModelID?, entity: [String:Any], callback: @escaping EntityCallback) throws {
+    public func create(type: Model.Type, id: ModelID?, entity: [String:Any], callback: @escaping EntityCallback) throws {
         var modifiedEntity = entity
         // NOTE(tunniclm): Ignore any id in the JSON, we should respect
         // the _id_ parameter instead
@@ -120,7 +122,7 @@ class MemoryStore: Store {
         }
     }
 
-    func update(type: Model.Type, id: ModelID, entity: [String:Any], callback: @escaping EntityCallback) throws {
+    public func update(type: Model.Type, id: ModelID, entity: [String:Any], callback: @escaping EntityCallback) throws {
         guard let memoryStoreID = id as? MemoryStoreID else {
             throw StoreError.idInvalid(id)
         }
@@ -156,7 +158,7 @@ class MemoryStore: Store {
         callback(MemoryStore.sanitize(entity: updatedItem), nil)
     }
 
-    func delete(type: Model.Type, id: ModelID, callback: @escaping EntityCallback) throws {
+    public func delete(type: Model.Type, id: ModelID, callback: @escaping EntityCallback) throws {
         // TODO(tunniclm): Generics might help with this type constraint (make parameter "id: CloudantStoreID").
         guard let memoryStoreID = id as? MemoryStoreID else {
             // TODO(tunniclm): This failure path may go away if Store
@@ -170,7 +172,7 @@ class MemoryStore: Store {
         callback(nil, .notFound(memoryStoreID))
     }
 
-    func deleteAll(type: Model.Type, callback: @escaping ErrorCallback) {
+    public func deleteAll(type: Model.Type, callback: @escaping ErrorCallback) {
         entities.removeAll()
         callback(nil)
     }
