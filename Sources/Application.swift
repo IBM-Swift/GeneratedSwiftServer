@@ -226,10 +226,11 @@ public class Application {
                         }
                     }
                 } catch let error as ModelError {
-                    if case ModelError.propertyTypeMismatch(let name, _, _, _) = error,
-                       name == "id" {
+                    switch error {
+                    case .propertyTypeMismatch(name: "id", _, _, _),
+                         .requiredPropertyMissing(name: "id"):
                         res.status(.badRequest)
-                    } else {
+                    default:
                         res.status(.unprocessableEntity)
                     }
                     res.send(json: JSON([ "error": error.defaultMessage() ]))
@@ -258,10 +259,11 @@ public class Application {
                         next()
                     }
                 } catch let error as ModelError {
-                    if case ModelError.propertyTypeMismatch(let name, _, _, _) = error,
-                       name == "id" {
+                    switch error {
+                    case .propertyTypeMismatch(name: "id", _, _, _),
+                         .requiredPropertyMissing(name: "id"):
                         res.status(.badRequest)
-                    } else {
+                    default:
                         // NOTE(tunniclm): delete() should only throw
                         // idInvalid errors
                         res.status(.internalServerError)

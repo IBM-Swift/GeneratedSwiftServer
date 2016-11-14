@@ -82,7 +82,7 @@ open class Model {
                 throw InternalError("ID conversion failed")
             }
             guard property.sameTypeAs(object: convertedID) else {
-                // NOTE(tunniclm): internal error, store did not actually convert 
+                // NOTE(tunniclm): internal error, store did not actually convert
                 // to the type we asked for
                 throw InternalError("ID conversion result has an incompatible type")
             }
@@ -295,11 +295,11 @@ open class Model {
     }
 
     // update
-    //   Update a model as defined by the provided JSON and write it to the configured Store.
-    //   Use the "id" property of the JSON, if provided, as the id to store the model against
-    //   in the Store.
+    //   Update a model of the matching type and id as defined by the provided JSON and write it to 
+    //   the configured Store.
     //
     // throws:
+    //   ModelError.requiredPropertyMissing("id") - if the id is missing or empty
     //   ModelError.extraneousProperty(name) - if the JSON supplies any property not present in the model definition
     //   ModelError.propertyTypeMismatch(...) - if any JSON property's type fails to match the model definition
     //   StoreError.idInvalid(id) - if an id is provided and is not compatible with the Store
@@ -316,6 +316,9 @@ open class Model {
     //           * StoreError.storeUnavailable(reason) - if the Store is not in a ready state to service queries
     //           * StoreError.internalError - if there is a logic error
     static func update(_ id: String?, json: JSON, callback: @escaping (Model?, StoreError?) -> Void) throws {
+        guard let id = id else {
+            throw ModelError.requiredPropertyMissing(name: "id")
+        }
         var entity: [String:Any] = [:]
         try self.forEachValidPropertyInJSON(json) { name, value in
             entity[name] = value
@@ -325,7 +328,7 @@ open class Model {
     }
 
     // TODO Check -- an update can only set or edit properties to non-nil values and
-    // as such an update will not put an entity in a state where it is missing 
+    // as such an update will not put an entity in a state where it is missing
     // required properties. This may well be bogus--you should probably be able to
     // set (non-required) properites to nil.
     // Assumes:
@@ -364,8 +367,11 @@ open class Model {
     //           * StoreError.storeUnavailable(reason) - if the Store is not in a ready state to service queries
     //           * StoreError.internalError - if there is a logic error
     static func delete(_ id: String?, callback: @escaping (Model?, StoreError?) -> Void) throws {
-        let id = try type(of: store as Store).ID(id)
-        try delete_(id, callback: callback)
+        guard let id = id else {
+            throw ModelError.requiredPropertyMissing(name: "id")
+        }
+        let modelID = try type(of: store as Store).ID(id)
+        try delete_(modelID, callback: callback)
     }
 
     static func deleteAll(callback: @escaping (StoreError?) -> Void) throws {
@@ -422,8 +428,11 @@ open class Model {
     func delete(callback: @escaping (Model?, StoreError?) -> Void) throws {
         let modelType = type(of: self)
         let storeType = type(of: modelType.store as Store)
-        let id = try storeType.ID(properties["id"])
-        try modelType.delete_(id, callback: callback)
+        guard let id = properties["id"] else {
+            throw InternalError("Entity from store is missing an id")
+        }
+        let modelID = try storeType.ID(id)
+        try modelType.delete_(modelID, callback: callback)
     }
 
     func json() -> JSON {
