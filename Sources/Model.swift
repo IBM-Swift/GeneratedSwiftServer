@@ -18,7 +18,7 @@ import SwiftyJSON
 import Foundation
 
 open class Model {
-    static var store: Store!
+    public static var store: Store!
     static var definitions: [String:(Model.Type,ModelDefinition)] = [:]
     var properties: [String:Any]
 
