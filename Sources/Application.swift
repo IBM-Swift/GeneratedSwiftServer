@@ -64,12 +64,7 @@ public class Application {
 
         router.all("/api/*", middleware: BodyParser())
 
-        // Initialise Store
-        Model.store = MemoryStore() /*CloudantStore(ConnectionProperties(
-            host: "localhost",
-            port: 5984,
-            secured: false
-        ))*/
+        Model.store = MemoryStore()
 
         // Load model definitions
         do {
@@ -143,7 +138,7 @@ public class Application {
                     }
                 } catch let error as ModelError {
                     if case ModelError.propertyTypeMismatch(let name, _, _, _) = error,
-                       name == "id" {
+                        name == "id" {
                         res.status(.badRequest)
                     } else {
                         // NOTE(tunniclm): findOne() should only throw
@@ -160,10 +155,10 @@ public class Application {
 
             router.post(allPath) { req, res, next in
                 guard let contentType = req.headers["Content-Type"],
-                      contentType.hasPrefix("application/json") else {
-                    res.status(.unsupportedMediaType)
-                    res.send(json: JSON([ "error": "Request Content-Type must be application/json" ]))
-                    return next()
+                    contentType.hasPrefix("application/json") else {
+                        res.status(.unsupportedMediaType)
+                        res.send(json: JSON([ "error": "Request Content-Type must be application/json" ]))
+                        return next()
                 }
                 guard case let .json(json)? = req.body else {
                     res.status(.badRequest)
@@ -203,10 +198,10 @@ public class Application {
 
             router.put(onePath) { req, res, next in
                 guard let contentType = req.headers["Content-Type"],
-                      contentType.hasPrefix("application/json") else {
-                    res.status(.unsupportedMediaType)
-                    res.send(json: JSON([ "error": "Request Content-Type must be application/json" ]))
-                    return next()
+                    contentType.hasPrefix("application/json") else {
+                        res.status(.unsupportedMediaType)
+                        res.send(json: JSON([ "error": "Request Content-Type must be application/json" ]))
+                        return next()
                 }
                 guard let body = req.body else {
                     res.status(.badRequest)
@@ -244,10 +239,12 @@ public class Application {
                         }
                     }
                 } catch let error as ModelError {
-                    if case ModelError.propertyTypeMismatch(let name, _, _, _) = error,
-                       name == "id" {
+                    switch error {
+                    case .propertyTypeMismatch(name: "id", _, _, _),
+                         .requiredPropertyMissing(name: "id"):
+
                         res.status(.badRequest)
-                    } else {
+                    default:
                         res.status(.unprocessableEntity)
                     }
                     res.send(json: JSON([ "error": error.defaultMessage() ]))
@@ -276,10 +273,12 @@ public class Application {
                         next()
                     }
                 } catch let error as ModelError {
-                    if case ModelError.propertyTypeMismatch(let name, _, _, _) = error,
-                       name == "id" {
+                    switch error {
+                    case .propertyTypeMismatch(name: "id", _, _, _),
+                         .requiredPropertyMissing(name: "id"):
+                        
                         res.status(.badRequest)
-                    } else {
+                    default:
                         // NOTE(tunniclm): delete() should only throw
                         // idInvalid errors
                         res.status(.internalServerError)

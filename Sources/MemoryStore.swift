@@ -42,6 +42,7 @@ public class MemoryStore: Store {
             }
         }
     }
+
     public static func ID(_ id: Any) throws -> ModelID {
         return try MemoryStoreID(id)
     }
@@ -65,7 +66,7 @@ public class MemoryStore: Store {
 
     public func findAll(type: Model.Type, callback: @escaping EntitiesCallback) {
         let matchingEntities = entities.filter { $0["_type"] as! Model.Type == type }
-                                       .map(MemoryStore.sanitize)
+            .map(MemoryStore.sanitize)
         callback(matchingEntities, nil)
     }
 
@@ -137,7 +138,7 @@ public class MemoryStore: Store {
         MemoryStore.mergeDictionary(&updatedItem, merge: entity)
         updatedItem["_type"] = type
         updatedItem["id"] = id
-
+        
         if let newId = try entity["id"].map({ try MemoryStoreID($0) }) {
             if newId.value != memoryStoreID.value {
                 // NOTE(tunniclm): Changing the id of this model
@@ -177,4 +178,3 @@ public class MemoryStore: Store {
         callback(nil)
     }
 }
-
