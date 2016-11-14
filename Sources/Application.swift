@@ -23,7 +23,6 @@ public class Application {
     public struct ProjectRootNotFoundError: Swift.Error {}
 
     public let router: Router
-    public var port = 8090
 
     public static func findProjectRoot(from initialSearchPath: String = #file) -> URL? {
         let fileManager = FileManager()
@@ -50,26 +49,9 @@ public class Application {
     }
 
     public init(projectRoot: URL) {
-        do {
-            let fileData = try Data(contentsOf: projectRoot.appendingPathComponent("config.json"))
-            let json = JSON(data: fileData)
-            if let port = json["port"].int {
-                self.port = port
-            }
-        } catch {
-            print("Unable to open file, using default port 8090")
-        }
-
         router = Router()
 
         router.all("/api/*", middleware: BodyParser())
-
-        // Initialise Store
-        Model.store = MemoryStore() /*CloudantStore(ConnectionProperties(
-            host: "localhost",
-            port: 5984,
-            secured: false
-        ))*/
 
         // Load model definitions
         do {
