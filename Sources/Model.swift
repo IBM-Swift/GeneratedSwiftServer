@@ -97,7 +97,7 @@ open class Model {
         let files = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
         
         for file in files.filter({ $0.lastPathComponent.hasSuffix(".json") }) {
-            if let data = try? Data(contentsOf: file) { // TODO(tunniclm): Take a look at what this throws
+            if let data = try? Data(contentsOf: file) {
                 do {
                     let modelDefinition = try ModelDefinition(json: JSON(data: data))
                     let modelClassName = "Generated." + modelDefinition.className
@@ -229,10 +229,10 @@ open class Model {
                 // model definition, so ignore it.
                 throw ModelError.extraneousProperty(name: jsonPropertyName)
             }
-            Log.debug("Found property definition for \(jsonPropertyName): \(property)") // DEBUG
+            Log.debug("Found property definition for \(jsonPropertyName): \(property)")
 
             if let value = property.convertValue(fromJSON: jsonValue) {
-                Log.debug("Setting \(property.name) property to \(value)") // DEBUG
+                Log.debug("Setting \(property.name) property to \(value)")
                 // TODO Validate property -- custom validations etc
                 callback(property.name, value)
             } else {

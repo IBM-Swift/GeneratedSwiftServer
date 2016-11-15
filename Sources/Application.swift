@@ -61,7 +61,7 @@ public class Application {
                 Log.error("Skipped loading model \(file) due to error: \(message)")
             }
         } catch {
-            Log.error("Failed to load models from ./models. Details: \(error)")
+            Log.error("Failed to load models from ./models: \(error)")
         }
 
         if Model.definitions.count == 0 {
@@ -182,7 +182,7 @@ public class Application {
                     res.send(json: JSON([ "error": error.defaultMessage() ]))
                     next()
                 } catch {
-                    Log.error("Unexpected error type")
+                    Log.error("Unexpected error type \(error)")
                     res.status(.internalServerError)
                     next()
                 }
