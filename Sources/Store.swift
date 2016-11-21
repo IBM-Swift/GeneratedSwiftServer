@@ -24,6 +24,7 @@ public protocol Store {
     func create(type: Model.Type, id: ModelID?, entity: [String:Any], callback: @escaping EntityCallback) throws
     func createOrUpdate(type: Model.Type, id: ModelID?, entity: [String:Any], callback: @escaping EntityCallback) throws
     func update(type: Model.Type, id: ModelID, entity: [String:Any], callback: @escaping EntityCallback) throws
+    func replace(type: Model.Type, id: ModelID, entity: [String:Any], callback: @escaping EntityCallback) throws
     func delete(type: Model.Type, id: ModelID, callback: @escaping EntityCallback) throws
     func deleteAll(type: Model.Type, callback: @escaping ErrorCallback) throws
 }

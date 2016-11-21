@@ -192,6 +192,67 @@ public class Application {
             router.put(onePath) { req, res, next in
                 Log.debug("PUT \(onePath)")
                 guard let contentType = req.headers["Content-Type"],
+                    contentType.hasPrefix("application/json") else {
+                        res.status(.unsupportedMediaType)
+                        res.send(json: JSON(["error": "Request Content-type must be application/json"]))
+                        return next()
+                }
+                guard let body = req.body else {
+                    res.status(.badRequest)
+                    res.send(json: JSON([ "error": "Missing request body" ]))
+                    return next()
+                }
+                guard case let .json(json) = body else {
+                    res.status(.badRequest)
+                    res.send(json: JSON([ "error": "Request body could not be parsed as JSON" ]))
+                    return next()
+                }
+
+                do {
+                    try modelClass.replace(req.parameters["id"], json: json) { model, error in
+                        switch error {
+                        case nil:
+                            guard let model = model else {
+                                // NOTE(tunniclm): This should not happen, replace() should
+                                // either provide a valid result or an error
+                                res.status(.internalServerError)
+                                return next()
+                            }
+                            res.send(json: model.json())
+                            return next()
+                        case .notFound?:
+                            res.status(.notFound)
+                            return next()
+                        case .idConflict(let id)?:
+                            res.status(.conflict)
+                            res.send(json: JSON([ "error": "Cannot update id to a value that already exists (\(id))" ]))
+                            return next()
+                        default:
+                            res.status(.internalServerError)
+                            return next()
+                        }
+                    }
+                } catch let error as ModelError {
+                    switch error {
+                    case .propertyTypeMismatch(name: "id", _, _, _),
+                         .requiredPropertyMissing(name: "id"):
+                        res.status(.badRequest)
+                    default:
+                        res.status(.unprocessableEntity)
+                    }
+                    res.send(json: JSON([ "error": error.defaultMessage() ]))
+                    return next()
+                } catch {
+                    res.status(.internalServerError)
+                    return next()
+                }
+
+            }
+
+            Log.info("Defining PATCH \(onePath)")
+            router.patch(onePath) { req, res, next in
+                Log.debug("PATCH \(onePath)")
+                guard let contentType = req.headers["Content-Type"],
                       contentType.hasPrefix("application/json") else {
                     res.status(.unsupportedMediaType)
                     res.send(json: JSON([ "error": "Request Content-Type must be application/json" ]))
