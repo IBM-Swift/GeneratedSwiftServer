@@ -42,7 +42,7 @@ open class Model {
         return updatedProperties
     }
 
-    static func ensureValid(_ properties: [String:Any]) throws {
+    static func ensureRequiredPropertiesExist(_ properties: [String:Any]) throws {
         // NOTE(tunniclm): validate that required properties have been provided
         guard let (_, modelDef) = Model.definitions[String(describing: self)] else {
             // NOTE(tunniclm): Model not found in the definitions dictionary
@@ -68,7 +68,7 @@ open class Model {
                 modelID = try storeType.ID(id)
             }
         }
-        try modelType.ensureValid(properties)
+        try modelType.ensureRequiredPropertiesExist(properties)
         self.properties = modelType.injectDefaults(properties)
         guard let (_, defn) = modelType.definitions[String(describing: modelType)] else {
             throw InternalError("No definition found for model \(modelType)")
@@ -244,50 +244,6 @@ open class Model {
         }
     }
 
-    private static func forEachRequiredValidPropertyInJSON(_ json: JSON, callback: @escaping (String,Any) -> Void) throws {
-        // NOTE(tunniclm): Look up the model definition for this Model subclass
-        // TODO This is using the name of the subclass as a key in a dictionary
-        // of registered model definitions. We probably shouldn't do this, since
-        // it ties model names directly to the named of Swift classes, which is
-        // quite restrictive.
-        guard let (_, model) = definitions[String(describing: self)] else {
-            // NOTE(tunniclm): Model not found in the definitions dictionary
-            // This should not happen, there must be a logical error in the code
-            assert(false)
-            return
-        }
-
-        for (modelJsonKey) in model.properties {
-            //Check if the key is required and if it exists in the json that we have received
-            if model.properties[modelJsonKey.key]!.isRequired && !json[modelJsonKey.key].exists() {
-                throw ModelError.requiredPropertyMissing(name: modelJsonKey.key)
-            }
-        }
-
-        // If we haven't thrown an error continue on get the values from the JSON
-        // NOTE(tunniclm): Construct an entity description from the provided JSON
-        // object, dropping any extraneous or mismatching properties
-        for (jsonPropertyName, jsonValue) in json.dictionaryValue {
-            guard let property = model.properties[jsonPropertyName] else {
-                // NOTE(tunniclm): Property provided in the JSON is not found in the
-                // model definition, so ignore it.
-                throw ModelError.extraneousProperty(name: jsonPropertyName)
-            }
-            Log.debug("Found property definition for \(jsonPropertyName): \(property)")
-
-            if let value = property.convertValue(fromJSON: jsonValue) {
-                Log.debug("Setting \(property.name) property to \(value)")
-                // TODO Validate property -- custom validations etc
-                callback(property.name, value)
-            } else {
-                // NOTE(tunniclm): Property provided in the JSON does not have a type
-                // that matches the property in the model definition, so ignore it.
-                throw ModelError.propertyTypeMismatch(name: property.name, type: String(describing: property.type),
-                                                      value: jsonValue.description, valueType: String(describing: jsonValue.type))
-            }
-        }
-    }
-
     // create
     //   Create a model as defined by the provided JSON and write it to the configured Store.
     //   Use the "id" property of the JSON, if provided, as the id to store the model against
@@ -314,7 +270,7 @@ open class Model {
         try self.forEachValidPropertyInJSON(json) { name, value in
             entity[name] = value
         }
-        try ensureValid(entity)
+        try ensureRequiredPropertiesExist(entity)
         let id = try entity["id"].map { try type(of: store as Store).ID($0) }
         try self.create_(id, entity, callback: callback)
     }
@@ -396,7 +352,7 @@ open class Model {
         }
     }
 
-    // update
+    // replace
     //   Replace a model of the matching type and id as defined by the provided JSON and write it to
     //   the configured Store.
     //
@@ -423,13 +379,16 @@ open class Model {
             throw ModelError.requiredPropertyMissing(name: "id")
         }
         var entity: [String: Any] = [:]
-        try self.forEachRequiredValidPropertyInJSON(json) { name, value in
+        try self.forEachValidPropertyInJSON(json) { name, value in
             entity[name] = value
         }
         let modelID = try type(of: store as Store).ID(id)
         try self.replace_(modelID, entity, callback:callback)
     }
 
+    // Assumes:
+    // * id is compatible with the Store we are using (caller should ensure this)
+    // * type checking of properties has already been performed and found compatible
     private static func replace_(_ id: ModelID, _ entity: [String:Any], callback: @escaping (Model?, StoreError?) -> Void) throws {
         do {
             try store.replace(type: self, id: id, entity: entity) { entity, error in
