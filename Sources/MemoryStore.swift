@@ -52,14 +52,14 @@ public class MemoryStore: Store {
         }
     }
 
-    private func changeID(from memoryStoreID: MemoryStoreID, to newID: Any?, type: Model.Type, callback: @escaping EntityCallback) throws -> MemoryStoreID {
+    private func updateExistingID(existing existingID: MemoryStoreID, new newID: Any?, type: Model.Type, callback: @escaping EntityCallback) throws -> MemoryStoreID? {
         if let newID = try newID.map({ try MemoryStoreID($0) }) {
-            if newID.value != memoryStoreID.value {
+            if newID.value != existingID.value {
                 // Changing the id of this model
                 if let (_, _) = findOne_(type: type, id: newID) {
                     // NOTE(tunniclm): The new id must not clash with existing model
                     callback(nil, .idConflict(newID))
-                    return memoryStoreID
+                    return nil
                 }
                 // NOTE(tunniclm): Update the counter to prevent future clashes of generated ids
                 if newID.value >= nextId {
@@ -68,7 +68,7 @@ public class MemoryStore: Store {
                 return newID
             }
         }
-        return memoryStoreID
+        return existingID
     }
 
     private static func sanitize(entity: [String:Any]) -> [String:Any] {
@@ -155,7 +155,7 @@ public class MemoryStore: Store {
         var updatedItem = existing
         MemoryStore.mergeDictionary(&updatedItem, merge: entity)
         updatedItem["_type"] = type
-        updatedItem["id"] = try changeID(from: memoryStoreID, to: entity["id"], type: type, callback: callback)
+        updatedItem["id"] = try updateExistingID(existing: memoryStoreID, new: entity["id"], type: type, callback: callback)
 
         entities[index] = updatedItem
         callback(MemoryStore.sanitize(entity: updatedItem), nil)
@@ -173,7 +173,11 @@ public class MemoryStore: Store {
 
         var resultEntity = entity
         resultEntity["_type"] = type
-        resultEntity["id"] = try changeID(from: memoryStoreID, to: entity["id"], type: type, callback: callback)
+        guard let newID = try updateExistingID(existing: memoryStoreID, new: entity["id"], type: type, callback: callback) else {
+            // NOTE: Had a StoreError while checking the new id
+            return
+        }
+        resultEntity["id"] = newID
 
         entities[index] = resultEntity
         callback(MemoryStore.sanitize(entity: resultEntity), nil)
