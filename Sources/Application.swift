@@ -65,8 +65,7 @@ public class Application {
         }
 
         if Model.definitions.count == 0 {
-            Log.error("No models were loaded, exiting")
-            exit(1)
+            Log.warning("No models were loaded, no routes will be defined")
         }
 
         // Generate the routes for each model
