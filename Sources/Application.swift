@@ -71,12 +71,14 @@ public class Application {
 
         // Generate the routes for each model
         for (_, (modelClass, modelDefn)) in Model.definitions {
-            let onePath = "/api/\(modelDefn.name)/:id"
+            let onePath = "/api/\(modelDefn.plural)/:id"
             let allPath = "/api/\(modelDefn.plural)"
 
             Log.info("Defining routes for \(modelDefn.name)")
 
+            Log.info("Defining DELETE \(allPath)")
             router.delete(allPath) { req, res, next in
+                Log.debug("DELETE \(allPath)")
                 do {
                     try modelClass.deleteAll() { error in
                         if let _ = error {
@@ -145,7 +147,7 @@ public class Application {
 
             Log.info("Defining POST \(allPath)")
             router.post(allPath) { req, res, next in
-                Log.debug("POST \(onePath)")
+                Log.debug("POST \(allPath)")
                 guard let contentType = req.headers["Content-Type"],
                       contentType.hasPrefix("application/json") else {
                     res.status(.unsupportedMediaType)
