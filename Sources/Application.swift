@@ -25,13 +25,24 @@ public class Application {
 
     public let router: Router
 
-    public static func findProjectRoot(from initialSearchPath: String = #file) -> URL? {
+    public static func executableURL() -> URL? {
+        var executableURL = Bundle.main.executableURL
+#if os(Linux)
+        if (executableURL == nil) {
+            executableURL = URL(fileURLWithPath: "/proc/self/exe").resolvingSymlinksInPath()
+        }
+#endif
+        return executableURL
+    }
+
+    public static func defaultSearchDir() -> URL {
+        return Application.executableURL()?.deletingLastPathComponent()
+               ?? URL(fileURLWithPath: #file).deletingLastPathComponent()
+    }
+
+    public static func findProjectRoot(fromDir initialSearchDir: URL = Application.defaultSearchDir()) -> URL? {
         let fileManager = FileManager()
-
-        let fileURL = URL(fileURLWithPath: initialSearchPath)
-        let directoryURL = fileURL.deletingLastPathComponent()
-
-        var searchDirectory = directoryURL
+        var searchDirectory = initialSearchDir
         while searchDirectory.path != "/" {
             let projectFilePath = searchDirectory.appendingPathComponent(".swiftservergenerator-project").path
             if fileManager.fileExists(atPath: projectFilePath) {
