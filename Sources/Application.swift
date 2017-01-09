@@ -50,6 +50,13 @@ public class Application {
             }
             searchDirectory.deleteLastPathComponent()
         }
+        
+        // Get path in alternate way, if first way fails.
+        let currentPath = fileManager.currentDirectoryPath
+        let projectFilePath = currentPath + "/.swiftservergenerator-project"
+        if fileManager.fileExists(atPath: projectFilePath) {
+            return URL(fileURLWithPath: currentPath)
+        }
         return nil
     }
 
